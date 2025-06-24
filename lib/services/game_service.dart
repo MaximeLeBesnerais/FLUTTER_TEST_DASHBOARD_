@@ -8,6 +8,7 @@ import '../assets/names.dart';
 import '../assets/adjectives.dart';
 import 'battle_engine.dart';
 import 'storage_service.dart';
+import 'game_clock.dart';
 
 class GameService extends ChangeNotifier {
   late GameState _gameState;
@@ -20,6 +21,14 @@ class GameService extends ChangeNotifier {
   GameService() {
     // Initialize with a default game state immediately
     _gameState = _createNewGame();
+    
+    // Start the game clock
+    final gameClock = GameClock();
+    if (!gameClock.isRunning) {
+      print('GAME SERVICE: Starting game clock');
+      gameClock.start();
+    }
+    
     _initializeGame();
   }
 
@@ -86,38 +95,56 @@ class GameService extends ChangeNotifier {
 
   // Battle operations
   Future<BattleResult?> fightOpponent(String gladiatorId, String opponentId) async {
+    print('BATTLE START: Attempting battle with gladiator=${gladiatorId}, opponent=${opponentId}');
+    
     final gladiator = _gameState.getGladiator(gladiatorId);
     final opponent = _gameState.availableOpponents
         .where((o) => o.id == opponentId)
         .firstOrNull;
 
-    // Debug logging
-    debugPrint('Battle attempt: gladiator=$gladiator, opponent=$opponent');
+    // Enhanced debug logging
+    print('BATTLE VALIDATION: gladiator found=${gladiator != null}');
     if (gladiator != null) {
-      debugPrint('Gladiator available: ${gladiator.isAvailable}, status: ${gladiator.status}');
+      print('BATTLE VALIDATION: gladiator name=${gladiator.name}, available=${gladiator.isAvailable}, status=${gladiator.status}, cooldownUntil=${gladiator.cooldownUntil}');
+    }
+    print('BATTLE VALIDATION: opponent found=${opponent != null}');
+    if (opponent != null) {
+      print('BATTLE VALIDATION: opponent name=${opponent.name}');
     }
 
     if (gladiator == null || opponent == null || !gladiator.isAvailable) {
-      debugPrint('Battle failed - gladiator null: ${gladiator == null}, opponent null: ${opponent == null}, not available: ${gladiator != null ? !gladiator.isAvailable : 'N/A'}');
+      print('BATTLE FAILED: Validation failed - gladiator null: ${gladiator == null}, opponent null: ${opponent == null}, not available: ${gladiator != null ? !gladiator.isAvailable : 'N/A'}');
       return null;
     }
 
+    print('BATTLE PROGRESS: Setting gladiator to fighting status');
     // Set gladiator as fighting
     _gameState.updateGladiator(gladiator.copyWith(status: GladiatorStatus.fighting));
     notifyListeners(); // Update UI immediately
 
     try {
+      print('BATTLE PROGRESS: Starting battle simulation');
       // Simulate battle
       final result = BattleEngine.simulateBattle(gladiator, opponent);
+      print('BATTLE RESULT: gladiatorWon=${result.gladiatorWon}, damage=${result.gladiatorDamage}, reward=${result.rewardMoney}');
+
+      // Calculate new status based on result
+      final newStatus = result.gladiatorDamage > 0 ? GladiatorStatus.injured : GladiatorStatus.idle;
+      
+      // Use game time for cooldown - 30 seconds in game time (faster than real time)
+      final gameClock = GameClock();
+      final newCooldown = gameClock.gameTime.add(const Duration(seconds: 30));
+      
+      print('BATTLE PROGRESS: Updating gladiator - newHP=${gladiator.hp - result.gladiatorDamage}, newStatus=${newStatus}, cooldownUntil=${newCooldown}');
+      print('BATTLE PROGRESS: Current game time=${gameClock.gameTime}');
 
       // Update gladiator based on result - ALWAYS set back to idle or injured
       final updatedGladiator = gladiator.copyWith(
         hp: gladiator.hp - result.gladiatorDamage,
         wins: result.gladiatorWon ? gladiator.wins + 1 : gladiator.wins,
         losses: !result.gladiatorWon ? gladiator.losses + 1 : gladiator.losses,
-        status: result.gladiatorDamage > 0 ? GladiatorStatus.injured : GladiatorStatus.idle,
-        // Use a very short cooldown - 30 seconds real time 
-        cooldownUntil: DateTime.now().add(const Duration(seconds: 30)),
+        status: newStatus,
+        cooldownUntil: newCooldown,
       );
 
       _gameState.updateGladiator(updatedGladiator);
@@ -126,16 +153,27 @@ class GameService extends ChangeNotifier {
       if (result.gladiatorWon) {
         final rewardWithBonus = (result.rewardMoney * (1.0 + _gameState.staff
             .fold(0.0, (sum, staff) => sum + staff.getBonus('fightRewards')))).round();
+        print('BATTLE PROGRESS: Adding reward money=${rewardWithBonus}');
         _gameState.addMoney(rewardWithBonus);
       }
 
       await _autoSave();
+      
+      // CRITICAL: Force multiple notifications to ensure UI updates
+      print('BATTLE PROGRESS: Forcing UI updates');
       notifyListeners();
+      
+      // Wait a small amount and notify again to ensure UI picks up the changes
+      await Future.delayed(const Duration(milliseconds: 100));
+      notifyListeners();
+      
+      print('BATTLE COMPLETE: Battle successfully completed and saved');
       return result;
       
     } catch (e) {
       // If anything goes wrong, make sure gladiator is not stuck in fighting state
-      debugPrint('Battle error: $e');
+      print('BATTLE ERROR: Exception occurred: $e');
+      print('BATTLE ERROR: Resetting gladiator status to idle');
       _gameState.updateGladiator(gladiator.copyWith(status: GladiatorStatus.idle));
       notifyListeners();
       return null;
@@ -262,6 +300,26 @@ class GameService extends ChangeNotifier {
 
   Future<void> _autoSave() async {
     await StorageService.autoSave(_gameState);
+  }
+
+  // Debug helper method
+  void debugPrintGladiatorStates() {
+    print('=== GLADIATOR STATES DEBUG ===');
+    print('Total gladiators: ${_gameState.gladiators.length}');
+    final gameClock = GameClock();
+    print('Current game time: ${gameClock.gameTime}');
+    print('Game clock running: ${gameClock.isRunning}');
+    
+    for (final gladiator in _gameState.gladiators) {
+      print('Gladiator: ${gladiator.name}');
+      print('  Status: ${gladiator.status}');
+      print('  HP: ${gladiator.hp}/${gladiator.maxHP}');
+      print('  Cooldown until: ${gladiator.cooldownUntil}');
+      print('  Is on cooldown: ${gladiator.isOnCooldown}');
+      print('  Is available: ${gladiator.isAvailable}');
+      print('  ---');
+    }
+    print('=== END DEBUG ===');
   }
 
   @override

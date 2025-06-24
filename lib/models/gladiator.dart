@@ -1,3 +1,5 @@
+import '../services/game_clock.dart';
+
 enum GladiatorStatus {
   idle,
   training,
@@ -51,14 +53,23 @@ class Gladiator {
   int get totalPower => strength + speed + endurance;
 
   // Check if gladiator is available for action
-  bool get isAvailable => status == GladiatorStatus.idle && !isOnCooldown;
+  bool get isAvailable {
+    final statusAvailable = status == GladiatorStatus.idle;
+    final notOnCooldown = !isOnCooldown;
+    final result = statusAvailable && notOnCooldown;
+    print('AVAILABILITY CHECK: gladiator=${name}, status=${status}, statusAvailable=${statusAvailable}, notOnCooldown=${notOnCooldown}, isAvailable=${result}');
+    return result;
+  }
 
   // Check if on cooldown (using game clock)
   bool get isOnCooldown {
     if (cooldownUntil == null) return false;
-    // Import game clock for comparison
-    final gameClock = DateTime.now(); // For now, we'll update this when we integrate the clock
-    return gameClock.isBefore(cooldownUntil!);
+    // Use game clock for comparison instead of real time
+    final gameClock = GameClock();
+    final now = gameClock.gameTime;
+    final isOnCooldownResult = now.isBefore(cooldownUntil!);
+    print('COOLDOWN CHECK: gladiator=${name}, cooldownUntil=${cooldownUntil}, gameTime=${now}, isOnCooldown=${isOnCooldownResult}');
+    return isOnCooldownResult;
   }
 
   // Check if training is complete (needs current day to check)

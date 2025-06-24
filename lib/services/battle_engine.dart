@@ -22,6 +22,10 @@ class BattleEngine {
   static final Random _random = Random();
 
   static BattleResult simulateBattle(Gladiator gladiator, Opponent opponent) {
+    print('BATTLE ENGINE: Starting battle simulation');
+    print('BATTLE ENGINE: Gladiator=${gladiator.name}, HP=${gladiator.hp}, Power=${gladiator.totalPower}');
+    print('BATTLE ENGINE: Opponent=${opponent.name}, HP=${opponent.hp}, Power=${opponent.totalPower}');
+    
     final List<String> log = [];
     
     // Create working copies
@@ -33,6 +37,8 @@ class BattleEngine {
     
     // Calculate win probability and difficulty
     final winProbability = calculateWinProbability(gladiator, opponent);
+    print('BATTLE ENGINE: Win probability calculated as ${winProbability}');
+    
     String difficulty;
     if (winProbability >= 0.7) {
       difficulty = 'super easy';
@@ -42,9 +48,12 @@ class BattleEngine {
       difficulty = 'difficult';
     }
     log.add('Fight is $difficulty!');
+    print('BATTLE ENGINE: Difficulty assessed as $difficulty');
     
     // Simulate the battle with simplified logic
-    bool gladiatorWon = _random.nextDouble() < winProbability;
+    final randomRoll = _random.nextDouble();
+    bool gladiatorWon = randomRoll < winProbability;
+    print('BATTLE ENGINE: Random roll=${randomRoll}, winProbability=${winProbability}, gladiatorWon=${gladiatorWon}');
     
     // Calculate damage based on outcome
     int gladiatorDamage = 0;
@@ -55,20 +64,25 @@ class BattleEngine {
       gladiatorDamage = (_random.nextInt(20) + 5).clamp(0, gladiatorHP - 1);
       opponentDamage = opponentHP; // Opponent defeated
       log.add('Fight is done! We won!');
+      print('BATTLE ENGINE: Victory! Gladiator damage=${gladiatorDamage}');
     } else {
       // Gladiator loses - takes more damage
       gladiatorDamage = (_random.nextInt(30) + 15).clamp(0, gladiatorHP - 1);
       opponentDamage = (_random.nextInt(40) + 10).clamp(0, opponentHP - 1);
       log.add('Fight is done! We lost!');
+      print('BATTLE ENGINE: Defeat! Gladiator damage=${gladiatorDamage}');
     }
 
-    return BattleResult(
+    final result = BattleResult(
       gladiatorWon: gladiatorWon,
       gladiatorDamage: gladiatorDamage,
       opponentDamage: opponentDamage,
       rewardMoney: gladiatorWon ? opponent.rewardMoney : 0,
       battleLog: log.join('\n'),
     );
+    
+    print('BATTLE ENGINE: Final result - won=${result.gladiatorWon}, damage=${result.gladiatorDamage}, reward=${result.rewardMoney}');
+    return result;
   }
 
   static double calculateWinProbability(Gladiator gladiator, Opponent opponent) {

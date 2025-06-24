@@ -158,17 +158,32 @@ class GameState extends ChangeNotifier {
   }
 
   void updateGladiator(Gladiator updatedGladiator) {
+    print('GAME STATE: Updating gladiator ${updatedGladiator.name}');
+    print('GAME STATE: New status=${updatedGladiator.status}, HP=${updatedGladiator.hp}, cooldownUntil=${updatedGladiator.cooldownUntil}');
+    
     final index = _gladiators.indexWhere((g) => g.id == updatedGladiator.id);
+    print('GAME STATE: Found gladiator at index=$index');
+    
     if (index != -1) {
+      final oldGladiator = _gladiators[index];
+      print('GAME STATE: Old gladiator status=${oldGladiator.status}, HP=${oldGladiator.hp}');
+      
       _gladiators[index] = updatedGladiator;
+      print('GAME STATE: Gladiator updated successfully');
       notifyListeners();
+    } else {
+      print('GAME STATE: ERROR - Gladiator not found in list!');
     }
   }
 
   Gladiator? getGladiator(String id) {
+    print('GAME STATE: Looking for gladiator with id=$id');
     try {
-      return _gladiators.firstWhere((g) => g.id == id);
+      final gladiator = _gladiators.firstWhere((g) => g.id == id);
+      print('GAME STATE: Found gladiator ${gladiator.name}, status=${gladiator.status}, available=${gladiator.isAvailable}');
+      return gladiator;
     } catch (e) {
+      print('GAME STATE: ERROR - Gladiator not found: $e');
       return null;
     }
   }

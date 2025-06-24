@@ -12,15 +12,26 @@ class ArenaScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<GameService>(
       builder: (context, gameService, child) {
+        print('ARENA UI: Building arena screen');
         final availableGladiators = gameService.gameState.gladiators
             .where((g) => g.isAvailable)
             .toList();
         final opponents = gameService.gameState.availableOpponents;
+        
+        print('ARENA UI: Found ${availableGladiators.length} available gladiators out of ${gameService.gameState.gladiators.length} total');
+        for (final g in gameService.gameState.gladiators) {
+          print('ARENA UI: Gladiator ${g.name} - status: ${g.status}, available: ${g.isAvailable}');
+        }
 
         return Scaffold(
           appBar: AppBar(
             title: const Text('Arena'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.bug_report),
+                onPressed: () => gameService.debugPrintGladiatorStates(),
+                tooltip: 'Debug Gladiator States',
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 onPressed: () => gameService.advanceDay(),
@@ -266,6 +277,10 @@ class ArenaScreen extends StatelessWidget {
   }
 
   Future<void> _startBattle(BuildContext context, GameService gameService, Gladiator gladiator, Opponent opponent) async {
+    print('ARENA UI: Starting battle UI flow');
+    print('ARENA UI: Selected gladiator=${gladiator.name}, opponent=${opponent.name}');
+    print('ARENA UI: Gladiator available=${gladiator.isAvailable}, status=${gladiator.status}');
+    
     // Show loading dialog
     showDialog(
       context: context,
@@ -285,18 +300,28 @@ class ArenaScreen extends StatelessWidget {
     // Shorter delay for better UX - battle should be quick!
     await Future.delayed(const Duration(milliseconds: 500));
 
+    print('ARENA UI: Calling gameService.fightOpponent()');
     // Execute battle
     final result = await gameService.fightOpponent(gladiator.id, opponent.id);
+    print('ARENA UI: Battle result received: ${result != null ? 'SUCCESS' : 'FAILED'}');
+    if (result != null) {
+      print('ARENA UI: Battle won=${result.gladiatorWon}, damage=${result.gladiatorDamage}');
+    }
 
     if (context.mounted) {
+      print('ARENA UI: Closing loading dialog and showing result');
       Navigator.of(context).pop(); // Close loading dialog
 
       if (result != null) {
+        print('ARENA UI: Showing battle result dialog');
         _showBattleResult(context, result);
       } else {
         // Show error dialog if battle failed
+        print('ARENA UI: Showing battle error dialog');
         _showBattleError(context);
       }
+    } else {
+      print('ARENA UI: Context not mounted, skipping dialog display');
     }
   }
 
